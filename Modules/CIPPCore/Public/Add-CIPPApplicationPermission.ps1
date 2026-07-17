@@ -58,13 +58,8 @@ function Add-CIPPApplicationPermission {
     Write-Information "Adding application permissions to application $ApplicationId in tenant $TenantFilter"
 
     $ServicePrincipalList = [System.Collections.Generic.List[object]]::new()
-    $CachedSPs = New-CIPPDbRequest -TenantFilter $TenantFilter -Type 'ServicePrincipals'
-    if ($CachedSPs) {
-        foreach ($SP in $CachedSPs) { $ServicePrincipalList.Add($SP) }
-    } else {
-        $SPList = New-GraphGETRequest -uri "https://graph.microsoft.com/beta/servicePrincipals?`$select=AppId,id,displayName&`$top=999" -skipTokenCache $true -tenantid $TenantFilter -NoAuthCheck $true
-        foreach ($SP in $SPList) { $ServicePrincipalList.Add($SP) }
-    }
+    $SPList = New-GraphGETRequest -uri "https://graph.microsoft.com/beta/servicePrincipals?`$select=AppId,id,displayName&`$top=999" -skipTokenCache $true -tenantid $TenantFilter -NoAuthCheck $true
+    foreach ($SP in $SPList) { $ServicePrincipalList.Add($SP) }
     $ourSVCPrincipal = $ServicePrincipalList | Where-Object -Property AppId -EQ $ApplicationId
     if (!$ourSVCPrincipal) {
         #Our Service Principal isn't available yet. We do a sleep and reexecute after 3 seconds.
@@ -127,7 +122,7 @@ function Add-CIPPApplicationPermission {
         if (!$svcPrincipalId) { continue }
 
         foreach ($SingleResource in $App.ResourceAccess | Where-Object -Property Type -EQ 'Role') {
-            if ($SingleResource.id -in $CurrentRoles.appRoleId) { continue }
+            if ($CurrentRoles | Where-Object { $_.appRoleId -eq $SingleResource.id -and $_.resourceId -eq $svcPrincipalId.id }) { continue }
             [pscustomobject]@{
                 principalId = $($ourSVCPrincipal.id)
                 resourceId  = $($svcPrincipalId.id)
